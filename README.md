@@ -1,1 +1,1 @@
-# SD3-From-Scratch
+# SD-From-Scratch
