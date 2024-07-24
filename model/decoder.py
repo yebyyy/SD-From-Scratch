@@ -3,6 +3,43 @@ import torch.nn as nn
 import torch.nn.functional as F
 from attention import SelfAttention
 
+
+
+class VAE_AttentionBlock(nn.Module):
+
+    def __init__(self, channels: int):
+        super().__init__()
+
+        self.group_norm = nn.GroupNorm(32, channels)
+        self.attention = SelfAttention(1, channels)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (Batch_size, Channel, Height, Width)
+        residual = x
+
+        b, c, h, w = x.shape
+
+        x = self.group_norm(x)
+
+        # x: (Batch_size, Channel, Height * Width)
+        x = x.view(b, c, h * w)
+
+        # x: (Batch_size, Height * Width, Channel)
+        x = x.transpose(-1, -2)  # Like each pixel having a feature(channel) vector
+
+        # relate each pixel to each other
+        x = self.attention(x)
+
+        # x: (Batch_size, Channel, Height * Width)
+        x = x.transpose(-1, -2)
+
+        # x: (Batch_size, Channel, Height, Width)
+        x = x.view(b, c, h, w)
+
+        x += residual
+        
+        return x
+
 class VAE_ResidualBlock(nn.Module):
     # This is made of convolutions and normalization
 
