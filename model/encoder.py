@@ -45,5 +45,48 @@ class VAE_Encoder(nn.Sequential):
             # (Batch_size, 512, Height / 8, Width / 8) -> (Batch_size, 512, Height / 8, Width / 8)
             VAE_ResidualBlock(512, 512),
 
-            VAE_AttentionBlock()
+            # self attention on each pixel, attention as a way to relate pixels to each other
+            VAE_AttentionBlock(512),  # convolution is local, attention is global since the first pixel can relate to the last pixel
+
+             VAE_ResidualBlock(512, 512),
+
+            # (Group, Channel of Features)
+             nn.GroupNorm(32, 512),
+
+             nn.SiLU(),
+
+            # (Batch_size, 512, Height / 8, Width / 8) -> (Batch_size, 8, Height / 8, Width / 8)
+             nn.Conv2d(512, 8, kernel_size=3, padding=1),
+
+            # (Batch_size, 8, Height / 8, Width / 8) -> (Batch_size, 8, Height / 8, Width / 8)
+             nn.Conv2d(8, 8, kernel_size=1),
         )
+
+    def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+        # x: (Batch_size, Channel, Height, Width)
+        # noise: (Batch_size, Out_Channel, Height / 8, Width / 8)
+        for module in self:
+            if getattr(module, 'stride', None) == (2, 2):
+                # (Left, Right, Top, Bottom)
+                x = F.pad(x, (0, 1, 0, 1))
+            x = module(x)
+
+        # (Batch_size, 8, Height / 8, Width / 8) -> 2 * (Batch_size, 4, Height / 8, Width / 8)
+        mean, log_variance = torch.chunk(x, 2, dim=1)  # Divide into 2 tensors in the channel dimension
+
+        # clamp is used to prevent the log_variance from being too small or too large
+        log_variance = torch.clamp(log_variance, -30, 20)
+
+        # (Batch_size, 4, Height / 8, Width / 8) -> (Batch_size, 4, Height / 8, Width / 8)
+        variance = log_variance.exp()
+
+        # (Batch_size, 4, Height / 8, Width / 8) -> (Batch_size, 4, Height / 8, Width / 8)
+        std = variance.sqrt()
+
+        # Sample from the normal distribution
+        x = mean + std * noise
+
+        # Scale the mean and variance to the original size
+        x *= 0.18215
+
+        return x
