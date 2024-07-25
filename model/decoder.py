@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from attention import SelfAttention
 
-
-
 class VAE_AttentionBlock(nn.Module):
 
     def __init__(self, channels: int):
