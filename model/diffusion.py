@@ -3,6 +3,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 from attention import SelfAttention, CrossAttention
 
+class TimeEmbedding(nn.Module):
+
+    def __init__(self, d_embd: int):
+        super().__init__()
+
+        self.linear1 = nn.Linear(d_embd, 4 * d_embd)
+        self.linear2 = nn.Linear(4 * d_embd, 4 * d_embd)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (1, 320)
+        x = self.linear1(x)
+        x = F.silu(x)
+        x = self.linear2(x)
+        # (1, 1280)
+        return x
+
 # Diffusion class is basically the Unet
 class Diffusion(nn.Module):
 
