@@ -54,7 +54,63 @@ class UNET_ResidualBlock(nn.Module):
 
         return merged + self.skip(residual)
         
+class UNET_AttentionBlock(nn.Module):
 
+    def __init__(self, n_head: int, n_embd: int, d_context=768):
+        super().__init__()
+        channels = n_head * n_embd
+        
+        self.groupnorm = nn.GroupNorm(32, channels)
+        self.conv_input = nn.Conv2d(channels, channels, kernel_size=1)
+
+        self.layernorm1 = nn.LayerNorm(channels)
+        self.attention1 = SelfAttention(n_head, channels, in_proj_bias=False)
+        self.layernorm2 = nn.LayerNorm(channels)
+        self.attention2 = CrossAttention(n_head, channels, d_context, in_proj_bias=False)
+        self.layernorm3 = nn.LayerNorm(channels)
+        self.linear_geglu1 = nn.Linear(channels, 4 * channels * 2)
+        self.linear_geglu2 = nn.Linear(4 * channels, channels)
+
+        self.conv_output = nn.Conv2d(channels, channels, kernel_size=1)
+
+    def forward(self, latent, context):
+        # latent: (batch_size, channels, height, width)
+        # context: (batch_size, seq_length, d_context)
+
+        long_residual = latent
+        
+        latent = self.groupnorm(latent)
+        latent = self.conv_input(latent)
+
+        b, c, h, w = latent.shape
+        latent = latent.view(b, c, h * w)
+        # (batch_size, height * width, channels)
+        latent = latent.transpose(-1, -2)
+
+        # Normalization + Self-Attention with residual connection
+        short_residual = latent
+        latent = self.layernorm1(latent)
+        latent = self.attention1(latent)
+        latent = latent + short_residual
+
+        # Normalization + Cross-Attention with residual connection
+        short_residual = latent
+        latent = self.layernorm2(latent)
+        latent = self.attention2(latent, context)
+        latent = latent + short_residual
+
+        # Normalization + Feedforward with residual connection
+        short_residual = latent
+        latent = self.layernorm3(latent)
+        latent, gate = self.linear_geglu1(latent).chunk(2, dim=-1)  # Split the tensor into two parts
+        latent = latent * F.gelu(gate)  # element-wise multiplication
+        latent = self.linear_geglu2(latent)
+        latent = latent + short_residual
+
+        # (batch_size, channels, height, width)
+        latent = latent.transpose(-1, -2).view((b, c, h, w))
+
+        latent = latent + long_residual
 
 class UpSample(nn.Module):
 
