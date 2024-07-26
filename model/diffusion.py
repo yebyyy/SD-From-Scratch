@@ -19,6 +19,43 @@ class TimeEmbedding(nn.Module):
         # (1, 1280)
         return x
     
+class UNET_ResidualBlock(nn.Module):
+
+    def __init__(self, in_channels: int, out_channels: int, d_time:int = 1280):
+        super().__init__()
+        self.groupnorm_feature = nn.GroupNorm(32, in_channels)
+        self.conv_feature = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.linear_time = nn.Linear(d_time, out_channels)
+
+        self.groupnorm_merged = nn.GroupNorm(32, out_channels)
+        self.conv_merged = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+
+        if in_channels == out_channels:
+            self.skip = nn.Identity()
+        else:
+            self.skip = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, latent, time):
+        # latent: (batch_size, in_channels, height, width)
+        # time: (1, 1280)
+        residual = latent
+        latent = self.groupnorm_feature(latent)
+        latent = F.silu(latent)
+        latent = self.conv_feature(latent)
+        latent = self.conv_feature(latent)
+
+        time = F.silu(time)
+        time = self.linear_time(time)
+
+        merged = latent + time.unsqueeze(-1).unsqueeze(-1)
+        merged = self.groupnorm_merged(merged)
+        merged = F.silu(merged)
+        merged = self.conv_merged(merged)
+
+        return merged + self.skip(residual)
+        
+
+
 class UpSample(nn.Module):
 
     def __init__(self, channels: int):
@@ -112,7 +149,6 @@ class UNET(nn.Module):
             SwitchSequential(UNET_ResidualBlock(640, 320), UNET_AttentionBlock(8, 40)),
 
         ])
-
 
 class UNET_OutputLayer(nn.Module):
 
