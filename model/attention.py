@@ -51,3 +51,40 @@ class SelfAttention(nn.Module):
         # output @ W_o
         output = self.out_proj(output)
         return output
+    
+class CrossAttention(nn.Module):
+
+    def __init__(self, n_head: int, d_embd: int, d_cross: int, in_proj_bias=True, out_proj_bias=True):
+        super().__init__()
+        self.q_proj = nn.Linear(d_embd, d_embd, bias=in_proj_bias)  # W_q
+        self.k_proj = nn.Linear(d_cross, d_embd, bias=in_proj_bias)  # W_k
+        self.v_proj = nn.Linear(d_cross, d_embd, bias=in_proj_bias)  # W_v
+        self.out_proj = nn.Linear(d_embd, d_embd, bias=out_proj_bias)  # W_o
+        self.n_head = n_head
+        self.d_head = d_embd // n_head
+
+    def forward(self, x, y):
+        # x: (batch_size, seq_length_q, d_embd_q) = (batch_size, height * width, channels)
+        # y: (batch_size, seq_length_kv, d_cross_kv) = (batch_size, 77, 768)
+        input_shape = x.shape
+        batch_size, seq_length_q, d_embd_q = input_shape
+
+        intermediate_shape = (batch_size, -1, self.n_head, self.d_head)
+
+        q = self.q_proj(x)
+        k = self.k_proj(y)
+        v = self.v_proj(y)
+
+        q = q.view(intermediate_shape).transpose(1, 2)
+        k = k.view(intermediate_shape).transpose(1, 2)
+        v = v.view(intermediate_shape).transpose(1, 2)
+        weight = q @ k.transpose(-1, -2)
+        weight /= math.sqrt(self.d_head)
+        weight = F.softmax(weight, dim=-1)
+        # (batch_size, n_heads, seq_length_q, d_head)
+        output = weight @ v
+        # (batch_size, seq_length_q, n_heads, d_embd)
+        output = output.transpose(1, 2).contiguous()  # contiguous: make a copy of tensor
+        output = output.view(input_shape)
+        output = self.out_proj(output)
+        return output
