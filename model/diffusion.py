@@ -19,6 +19,18 @@ class TimeEmbedding(nn.Module):
         # (1, 1280)
         return x
     
+class UpSample(nn.Module):
+
+    def __init__(self, channels: int):
+        super().__init__()
+
+        self.conv = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (Batch_size, Channel, Height, Width) -> (Batch_size, Channel, Height * 2, Width * 2)
+        x = F.interpolate(x, scale_factor=2, mode="nearest")  # nearest: replicate the pixels, basically the same as nn.Upsample
+        return self.conv(x)
+
 class SwitchSequential(nn.Sequential):
     def forward(self, latent: torch.Tensor, context: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
         for layer in self:
@@ -100,6 +112,23 @@ class UNET(nn.Module):
             SwitchSequential(UNET_ResidualBlock(640, 320), UNET_AttentionBlock(8, 40)),
 
         ])
+
+
+class UNET_OutputLayer(nn.Module):
+
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+
+        self.groupnorm = nn.GroupNorm(32, in_channels)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (batch_size, 320, height / 8, width / 8)
+        x = self.groupnorm(x)
+        x = F.silu(x)
+        x = self.conv(x)
+        # (batch_size, 4, height / 8, width / 8)
+        return x
 
 # Diffusion class is basically the Unet
 class Diffusion(nn.Module):
