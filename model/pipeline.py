@@ -81,13 +81,12 @@ def generate(prompt: str, uncond_prompt: str, input_image = None,
             latent = encoder(input_image_tensor, encoder_noise)
 
             sampler.set_strength(strength = strength)
-            latents = sampler.add_noise(latent, sampler.timesteps([0]))
+            latent = sampler.add_noise(latent, sampler.timesteps([0]))
 
             to_idle(encoder)
         else:
-            latents = torch.randn(latents_shape, generator=generator, device=device)
+            latent = torch.randn(latents_shape, generator=generator, device=device)
 
         diffusion = models['diffusion']
         diffusion.to(device)
 
-        
