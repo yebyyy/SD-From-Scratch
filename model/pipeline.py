@@ -90,3 +90,49 @@ def generate(prompt: str, uncond_prompt: str, input_image = None,
         diffusion = models['diffusion']
         diffusion.to(device)
 
+        timesteps = tqdm(sampler.timesteps)  # tqdm is a progress bar
+        for i, timestep in enumerate(timesteps):
+            # to (1, 320)
+            time_embedding = get_time_embedding(timestep).to(device)
+
+            # (batch_size, 4, latents_height, latents_width)
+            model_input = latent
+
+            if do_cgf:
+                # (batch_size * 2, 4, latents_height, latents_width)
+                model_input = model_input.repeat(2, 1, 1, 1)  # one with the prompt one without the prompt
+
+            # output is the predicted noise by the UNET
+            model_output = diffusion(model_input, context, time_embedding)
+
+            if do_cgf:
+                output_cond, output_uncond = model_output.chunk(2)
+                model_output = cfg_scale * (output_cond - output_uncond) + output_uncond
+
+            latent = sampler.step(timestep, latent, model_output)
+        to_idle(diffusion)
+
+        decoder = models['decoder']
+        decoder.to(device)
+        images = decoder(latent)
+        to_idle(decoder)
+        images = rescale(images, (-1, 1), (0, 255), clamp = True)
+        # (batch_size, channel, height, width) -> (batch_size, height, width, channel)
+        images = images.permute(0, 2, 3, 1)
+        images = images.to("cpu", torch.uint8).numpy()
+        return images[0]  # [] is the batch size 
+    
+def rescale(x, old_range, new_range, clamp = False):
+    old_min, old_max = old_range
+    new_min, new_max = new_range
+    x -= old_min
+    x = x * (new_max - new_min) / (old_max - old_min) + new_min
+    if clamp:
+        x = x.clamp(new_min, new_max)
+    return x
+
+# Convert the timestep into a time embedding
+def get_time_embedding(timestep: int):
+    freqs = torch.pow(10000, -torch.arange(0, 160, dtype=torch.float32) / 160)  # d_time = 320, 160 = d_time / 2
+    x = torch.tensor([timestep], dtype=torch.float32)[:, None] * freqs[None]  # [:, None] add a dimension, freqs[None] add a dimension
+    return torch.cat(torch.cos(x), torch.sin(x), dim=-1)
