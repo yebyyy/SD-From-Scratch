@@ -38,10 +38,11 @@ class UNET_ResidualBlock(nn.Module):
     def forward(self, latent, time):
         # latent: (batch_size, in_channels, height, width)
         # time: (1, 1280)
+        if latent is None:
+            raise RuntimeError("Latent is None")
         residual = latent
         latent = self.groupnorm_feature(latent)
         latent = F.silu(latent)
-        latent = self.conv_feature(latent)
         latent = self.conv_feature(latent)
 
         time = F.silu(time)
@@ -83,7 +84,7 @@ class UNET_AttentionBlock(nn.Module):
         latent = self.conv_input(latent)
 
         b, c, h, w = latent.shape
-        latent = latent.view(b, c, h * w)
+        latent = latent.view((b, c, h * w))
         # (batch_size, height * width, channels)
         latent = latent.transpose(-1, -2)
 
@@ -110,7 +111,8 @@ class UNET_AttentionBlock(nn.Module):
         # (batch_size, channels, height, width)
         latent = latent.transpose(-1, -2).view((b, c, h, w))
 
-        latent = latent + long_residual
+        latent = self.conv_output(latent) + long_residual
+        return latent
 
 class UpSample(nn.Module):
 

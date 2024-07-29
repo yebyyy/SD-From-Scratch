@@ -20,7 +20,7 @@ class VAE_AttentionBlock(nn.Module):
         x = self.groupnorm(x)
 
         # x: (Batch_size, Channel, Height * Width)
-        x = x.view(b, c, h * w)
+        x = x.view((b, c, h * w))
 
         # x: (Batch_size, Height * Width, Channel)
         x = x.transpose(-1, -2)  # Like each pixel having a feature(channel) vector
@@ -32,7 +32,7 @@ class VAE_AttentionBlock(nn.Module):
         x = x.transpose(-1, -2)
 
         # x: (Batch_size, Channel, Height, Width)
-        x = x.view(b, c, h, w)
+        x = x.view((b, c, h, w))
 
         x += residual
         

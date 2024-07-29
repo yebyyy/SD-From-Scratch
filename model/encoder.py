@@ -48,21 +48,21 @@ class VAE_Encoder(nn.Sequential):
             # self attention on each pixel, attention as a way to relate pixels to each other
             VAE_AttentionBlock(512),  # convolution is local, attention is global since the first pixel can relate to the last pixel
 
-             VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
 
             # (Group, Channel of Features)
-             nn.GroupNorm(32, 512),
+            nn.GroupNorm(32, 512),
 
-             nn.SiLU(),
+            nn.SiLU(),
 
             # (Batch_size, 512, Height / 8, Width / 8) -> (Batch_size, 8, Height / 8, Width / 8)
-             nn.Conv2d(512, 8, kernel_size=3, padding=1),
+            nn.Conv2d(512, 8, kernel_size=3, padding=1),
 
             # (Batch_size, 8, Height / 8, Width / 8) -> (Batch_size, 8, Height / 8, Width / 8)
-             nn.Conv2d(8, 8, kernel_size=1),
+            nn.Conv2d(8, 8, kernel_size=1),
         )
 
-    def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, noise: torch.Tensor):
         # x: (Batch_size, Channel, Height, Width)
         # noise: (Batch_size, Out_Channel, Height / 8, Width / 8)
         for module in self:

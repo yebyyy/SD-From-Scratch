@@ -17,7 +17,7 @@ def generate(prompt, uncond_prompt = None, input_image = None,
              device = None, idle_device = None, tokenizer = None):
     with torch.no_grad():
 
-        if not 0 < strength < 1:
+        if not 0 < strength <= 1:
             raise ValueError('Strength must be between 0 and 1')
         # if we want to move things to the cpu
 
@@ -48,7 +48,7 @@ def generate(prompt, uncond_prompt = None, input_image = None,
             # (2 * batch_size, seq_length, d_embd)
             context = torch.cat([cond_context, uncond_context])
         else:
-            tokens = tokenizer.batch_encoder_plus([prompt], padding = "max_length", max_length = 77).input_ids
+            tokens = tokenizer.batch_encode_plus([prompt], padding = "max_length", max_length = 77).input_ids
             tokens = torch.tensor(tokens, dtype = torch.long, device = device)
             # (batch_size, seq_length, d_embd)
             context = clip(tokens)

@@ -17,7 +17,7 @@ class DDPMSampler:
     def set_inference_steps(self, num_inference_steps=50):
         self.num_inference_steps = num_inference_steps
         ### 999, 999 - 20, 999 - 40, ..., 0  a total of 50 steps
-        step_ratio = self.num_training_steps // num_inference_steps
+        step_ratio = self.num_training_steps // self.num_inference_steps
         self.timesteps = torch.from_numpy((np.arange(0, num_inference_steps) * step_ratio).round()[::-1].copy().astype(np.int64))
 
     def add_noise(self, original_samples: torch.FloatTensor, timestep: torch.IntTensor) -> torch.FloatTensor:

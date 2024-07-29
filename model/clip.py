@@ -9,7 +9,7 @@ class CLIPEmbedding(nn.Module):
         super().__init__()
         
         self.token_embedding = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding = nn.Parameter(torch.zeros(seq_length, n_embd))  # Learned positional embedding
+        self.position_embedding = nn.Parameter(torch.zeros((seq_length, n_embd)))  # Learned positional embedding
 
     def forward(self, tokens):
         # (batch_size, seq_length) -> (batch_size, seq_length, n_embd)
