@@ -10,8 +10,8 @@ HEIGHT = 512
 LATENTS_WIDTH = 512 // 8
 LATENTS_HEIGHT = 512 // 8
 
-def generate(prompt: str, uncond_prompt: str, input_image = None, 
-             strength = 0.8, do_cgf = True, cfg_scale = 7.5, 
+def generate(prompt, uncond_prompt = None, input_image = None, 
+             strength = 0.8, do_cfg = True, cfg_scale = 7.5, 
              sampler_name = 'ddpm', 
              n_inference_steps = 50, models = {}, seed = None,
              device = None, idle_device = None, tokenizer = None):
@@ -34,7 +34,7 @@ def generate(prompt: str, uncond_prompt: str, input_image = None,
         clip = models['clip']
         clip.to(device)
         
-        if do_cgf:
+        if do_cfg:
             # Convert prompt into tokens
             cond_tokens = tokenizer.batch_encode_plus([prompt], padding = "max_length", max_length = 77).input_ids  # padding means that the prompt will be padded to the max length of the batch
             # (batch_size, seq_length)
@@ -81,7 +81,7 @@ def generate(prompt: str, uncond_prompt: str, input_image = None,
             latent = encoder(input_image_tensor, encoder_noise)
 
             sampler.set_strength(strength = strength)
-            latent = sampler.add_noise(latent, sampler.timesteps([0]))
+            latent = sampler.add_noise(latent, sampler.timesteps[0])
 
             to_idle(encoder)
         else:
@@ -98,14 +98,14 @@ def generate(prompt: str, uncond_prompt: str, input_image = None,
             # (batch_size, 4, latents_height, latents_width)
             model_input = latent
 
-            if do_cgf:
+            if do_cfg:
                 # (batch_size * 2, 4, latents_height, latents_width)
                 model_input = model_input.repeat(2, 1, 1, 1)  # one with the prompt one without the prompt
 
             # output is the predicted noise by the UNET
             model_output = diffusion(model_input, context, time_embedding)
 
-            if do_cgf:
+            if do_cfg:
                 output_cond, output_uncond = model_output.chunk(2)
                 model_output = cfg_scale * (output_cond - output_uncond) + output_uncond
 
@@ -116,6 +116,7 @@ def generate(prompt: str, uncond_prompt: str, input_image = None,
         decoder.to(device)
         images = decoder(latent)
         to_idle(decoder)
+
         images = rescale(images, (-1, 1), (0, 255), clamp = True)
         # (batch_size, channel, height, width) -> (batch_size, height, width, channel)
         images = images.permute(0, 2, 3, 1)
@@ -135,4 +136,4 @@ def rescale(x, old_range, new_range, clamp = False):
 def get_time_embedding(timestep: int):
     freqs = torch.pow(10000, -torch.arange(0, 160, dtype=torch.float32) / 160)  # d_time = 320, 160 = d_time / 2
     x = torch.tensor([timestep], dtype=torch.float32)[:, None] * freqs[None]  # [:, None] add a dimension, freqs[None] add a dimension
-    return torch.cat(torch.cos(x), torch.sin(x), dim=-1)
+    return torch.cat([torch.cos(x), torch.sin(x)], dim=-1)

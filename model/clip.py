@@ -9,7 +9,7 @@ class CLIPEmbedding(nn.Module):
         super().__init__()
         
         self.token_embedding = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding = nn.Parameter(torch.zeros(vocab_size, n_embd))  # Learned positional embedding
+        self.position_embedding = nn.Parameter(torch.zeros(seq_length, n_embd))  # Learned positional embedding
 
     def forward(self, tokens):
         # (batch_size, seq_length) -> (batch_size, seq_length, n_embd)
@@ -23,25 +23,25 @@ class CLIPLayer(nn.Module):
     def __init__(self, n_heads: int, d_embd: int):
         super().__init__()
 
-        self.layer_norm1 = nn.LayerNorm(d_embd)
-        self.self_attention = SelfAttention(n_heads, d_embd)
-        self.layernorm2 = nn.LayerNorm(d_embd)
-        self.linear1 = nn.Linear(d_embd, 4 * d_embd)
-        self.linear2 = nn.Linear(4 * d_embd, d_embd)
+        self.layernorm_1 = nn.LayerNorm(d_embd)
+        self.attention = SelfAttention(n_heads, d_embd)
+        self.layernorm_2 = nn.LayerNorm(d_embd)
+        self.linear_1 = nn.Linear(d_embd, 4 * d_embd)
+        self.linear_2 = nn.Linear(4 * d_embd, d_embd)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # (batch_size, seq_length, d_embd)
         residual = x
 
-        x = self.layer_norm1(x)
-        x = self.self_attention(x, causal_mask=True)
+        x = self.layernorm_1(x)
+        x = self.attention(x, causal_mask=True)
         x += residual
 
         residual = x
-        x = self.layernorm2(x)
-        x = self.linear1(x)
+        x = self.layernorm_2(x)
+        x = self.linear_1(x)
         x = x * torch.sigmoid(1.702 * x)  # QuickGELU
-        x = self.linear2(x)
+        x = self.linear_2(x)
         x += residual
 
         return x
@@ -55,7 +55,7 @@ class CLIP(nn.Module):
         super().__init__()
         self.embedding = CLIPEmbedding(49408, 768, 77)  # vocab_size, d_embd, seq_length
 
-        self.layers = nn.Module([
+        self.layers = nn.ModuleList([
             CLIPLayer(12, 768) for _ in range(12)
         ])
 

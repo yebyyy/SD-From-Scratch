@@ -18,10 +18,10 @@ class DDPMSampler:
         self.num_inference_steps = num_inference_steps
         ### 999, 999 - 20, 999 - 40, ..., 0  a total of 50 steps
         step_ratio = self.num_training_steps // num_inference_steps
-        self.timesteps = torch.from_numpy(np.arange(0, num_inference_steps) * step_ratio.round()[::-1].copy().astype(np.int64))
+        self.timesteps = torch.from_numpy((np.arange(0, num_inference_steps) * step_ratio).round()[::-1].copy().astype(np.int64))
 
     def add_noise(self, original_samples: torch.FloatTensor, timestep: torch.IntTensor) -> torch.FloatTensor:
-        alpha_cumprod = self.alphas_comprod.to(original_samples.device, dtype = original_samples.dtype)
+        alpha_cumprod = self.alphas_cumprod.to(original_samples.device, dtype = original_samples.dtype)
         timestep = timestep.to(original_samples.device)
         sqrt_alpha_cumprod = alpha_cumprod[timestep] ** 0.5
         sqrt_alpha_cumprod = sqrt_alpha_cumprod.flatten()  # flatten is used to remove the extra dimension
