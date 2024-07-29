@@ -60,7 +60,7 @@ class CrossAttention(nn.Module):
         self.k_proj = nn.Linear(d_cross, d_embd, bias=in_proj_bias)  # W_k
         self.v_proj = nn.Linear(d_cross, d_embd, bias=in_proj_bias)  # W_v
         self.out_proj = nn.Linear(d_embd, d_embd, bias=out_proj_bias)  # W_o
-        self.n_head = n_head
+        self.n_heads = n_head
         self.d_head = d_embd // n_head
 
     def forward(self, x, y):
@@ -69,7 +69,7 @@ class CrossAttention(nn.Module):
         input_shape = x.shape
         batch_size, seq_length_q, d_embd_q = input_shape
 
-        intermediate_shape = (batch_size, -1, self.n_head, self.d_head)
+        intermediate_shape = (batch_size, -1, self.n_heads, self.d_head)
 
         q = self.q_proj(x)
         k = self.k_proj(y)
