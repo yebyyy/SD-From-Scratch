@@ -127,7 +127,7 @@ class UpSample(nn.Module):
         return self.conv(x)
 
 class SwitchSequential(nn.Sequential):
-    def forward(self, latent: torch.Tensor, context: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
+    def forward(self, latent, context, time):
         for layer in self:
             if isinstance(layer, UNET_AttentionBlock):
                 latent = layer(latent, context)

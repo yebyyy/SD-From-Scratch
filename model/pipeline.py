@@ -28,7 +28,7 @@ def generate(prompt, uncond_prompt = None, input_image = None,
         generator = torch.Generator(device=device)
 
         if seed is None:
-            generate.seed()
+            generator.seed()
         else:
             generator.manual_seed(seed)
         clip = models['clip']
