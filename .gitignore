@@ -1,3 +1,4 @@
 data/
 images/
 model/__pycache__/
+.idea/
